@@ -215,5 +215,6 @@ def simulate_load():
 
     t = threading.Thread(target=_simulate, daemon=True)
     t.start()
+    
 
     return jsonify({"message": f"Simulating {n} requests with {algorithm}"})
