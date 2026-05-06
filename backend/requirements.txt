@@ -1,0 +1,13 @@
+flask
+flask-cors
+flask-socketio
+flask-sqlalchemy
+flask-jwt-extended
+flask-migrate
+psycopg2-binary
+numpy
+pandas
+scikit-learn
+gevent
+bcrypt
+python-dotenv
