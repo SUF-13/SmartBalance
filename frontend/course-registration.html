@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Portal - Course Registration</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="app-shell-body">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h1 class="sidebar-title">Student Portal</h1>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link" href="./home.html">Home</a>
+        <a class="sidebar-link active" href="./course-registration.html">Course Registration</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <header class="content-header">
+        <h2>Course Registration</h2>
+      </header>
+
+      <section class="tab-container">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="student-info">Student Info</button>
+          <button class="tab-btn" data-tab="courses-available">Courses Available</button>
+          <button class="tab-btn" data-tab="courses-registered">Courses Registered</button>
+        </div>
+
+        <div class="tab-panel active" id="student-info">
+          <div class="student-info-box">
+            <p><strong>Name:</strong> Muhammad Sufyan Ali</p>
+            <p><strong>Roll Number:</strong> 25K-0789</p>
+            <p><strong>Program:</strong> BS(CS)</p>
+            <p><strong>Batch:</strong> Fall 2025</p>
+            <p><strong>Section:</strong> BCS-2A</p>
+            <p><strong>Course Limit for Semester:</strong> 6</p>
+            <p><strong>Registered Courses:</strong> 6</p>
+            <p><strong>Registered Credits:</strong> 19</p>
+            <p><strong>Semester:</strong> Spring 2026</p>
+            <p><strong>Warning Count:</strong> 0</p>
+            <p><strong>Credits Earned:</strong> 83</p>
+            <p><strong>Credits Attempted:</strong> 102</p>
+            <p><strong>CGPA:</strong> 3.17</p>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="courses-available">
+          <div class="table-top-actions">
+            <button id="registerButton" class="btn-register">Register</button>
+          </div>
+          <div class="table-wrap">
+            <table class="portal-table">
+              <thead>
+                <tr>
+                  <th>Sr.#</th>
+                  <th>Course Name</th>
+                  <th>Cr.Hrs</th>
+                  <th>Relation</th>
+                  <th>Status</th>
+                  <th>Section</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="row-available">
+                  <td>1</td>
+                  <td>Technical and Business Writing</td>
+                  <td>3</td>
+                  <td>Core</td>
+                  <td>Not Registered</td>
+                  <td>
+                    <select>
+                      <option>RCS-6A</option>
+                      <option>RCS-6B</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr class="row-available">
+                  <td>2</td>
+                  <td>Applied Human Computer Interaction</td>
+                  <td>3</td>
+                  <td>Core</td>
+                  <td>Not Registered</td>
+                  <td>
+                    <select>
+                      <option>RCS-6A</option>
+                      <option>RCS-6B</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr class="improvement-row">
+                  <td colspan="6">Improvement Courses</td>
+                </tr>
+                <tr class="row-available">
+                  <td>3</td>
+                  <td>Applied Physics</td>
+                  <td>3</td>
+                  <td>Core</td>
+                  <td>Not Registered</td>
+                  <td>
+                    <select>
+                      <option>RCS-4A</option>
+                      <option>RCS-4B</option>
+                    </select>
+                  </td>
+                </tr>
+                <tr class="row-available">
+                  <td>4</td>
+                  <td>Expository Writing</td>
+                  <td>3</td>
+                  <td>Core</td>
+                  <td>Not Registered</td>
+                  <td>
+                    <select>
+                      <option>RCS-1A</option>
+                      <option>RCS-1B</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="courses-registered">
+          <div class="table-wrap">
+            <table class="portal-table registered-table">
+              <thead>
+                <tr>
+                  <th>Sr.#</th>
+                  <th>Course Code</th>
+                  <th>Course Name</th>
+                  <th>Cr.Hrs</th>
+                  <th>Relation</th>
+                  <th>Status</th>
+                  <th>Section</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="row-registered">
+                  <td>1</td>
+                  <td>SS2012</td>
+                  <td>Technical and Business Writing</td>
+                  <td>3</td>
+                  <td>Core</td>
+                  <td>Registered</td>
+                  <td>RCS-6A</td>
+                </tr>
+                <tr class="row-registered">
+                  <td>2</td>
+                  <td>CS3044</td>
+                  <td>Applied Human Computer Interaction</td>
+                  <td>3</td>
+                  <td>Core</td>
+                  <td>Registered</td>
+                  <td>RCS-6A</td>
+                </tr>
+                <tr class="row-registered">
+                  <td>3</td>
+                  <td>AI2002</td>
+                  <td>Artificial Intelligence</td>
+                  <td>3</td>
+                  <td>Core</td>
+                  <td>Registered</td>
+                  <td>RCS-6A</td>
+                </tr>
+                <tr class="row-registered">
+                  <td>4</td>
+                  <td>CS4045</td>
+                  <td>Deep Learning for Perception</td>
+                  <td>3</td>
+                  <td>Elective</td>
+                  <td>Registered</td>
+                  <td>RCS-6A</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const tabButtons = document.querySelectorAll(".tab-btn");
+    const tabPanels = document.querySelectorAll(".tab-panel");
+
+    tabButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const targetTab = button.dataset.tab;
+
+        tabButtons.forEach((btn) => btn.classList.remove("active"));
+        tabPanels.forEach((panel) => panel.classList.remove("active"));
+
+        button.classList.add("active");
+        document.getElementById(targetTab).classList.add("active");
+      });
+    });
+
+    const registerButton = document.getElementById("registerButton");
+    registerButton.addEventListener("click", () => {
+      const shouldRegister = window.confirm(
+        "Are you sure you want to register?"
+      );
+
+      if (shouldRegister) {
+        window.alert("Registration confirmed.");
+      }
+    });
+  </script>
+</body>
+</html>
