@@ -2,8 +2,8 @@ flask
 flask-cors
 flask-socketio
 flask-sqlalchemy
-flask-jwt-extended
 flask-migrate
+flasgger
 psycopg2-binary
 numpy
 pandas

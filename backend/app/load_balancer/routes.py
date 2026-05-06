@@ -16,6 +16,26 @@ lb_bp = Blueprint("lb", __name__, url_prefix="/api")
 
 @lb_bp.route("/courses", methods=["GET"])
 def get_courses():
+    """
+    List courses (filterable).
+    ---
+    tags:
+      - Courses
+    parameters:
+      - in: query
+        name: dept_id
+        required: false
+        type: string
+        example: "CS"
+      - in: query
+        name: semester
+        required: false
+        type: integer
+        example: 3
+    responses:
+      200:
+        description: OK
+    """
     dept_id = request.args.get("dept_id")
     semester = request.args.get("semester", type=int)
     courses = CourseService.get_all_courses(dept_id=dept_id, semester=semester)
@@ -24,6 +44,23 @@ def get_courses():
 
 @lb_bp.route("/courses/<course_id>", methods=["GET"])
 def get_course(course_id):
+    """
+    Get course by id.
+    ---
+    tags:
+      - Courses
+    parameters:
+      - in: path
+        name: course_id
+        required: true
+        type: string
+        example: "CS101"
+    responses:
+      200:
+        description: OK
+      404:
+        description: Not found
+    """
     course = CourseService.get_course(course_id)
     if not course:
         return jsonify({"error": "Course not found"}), 404
@@ -32,6 +69,15 @@ def get_course(course_id):
 
 @lb_bp.route("/departments", methods=["GET"])
 def get_departments():
+    """
+    List departments.
+    ---
+    tags:
+      - Courses
+    responses:
+      200:
+        description: OK
+    """
     return jsonify({"departments": CourseService.get_departments()})
 
 
@@ -39,6 +85,22 @@ def get_departments():
 
 @lb_bp.route("/my-courses", methods=["GET"])
 def my_courses():
+    """
+    List courses registered by a student.
+    ---
+    tags:
+      - Registration
+    parameters:
+      - in: query
+        name: student_id
+        required: false
+        type: string
+        example: "DEMO-STUDENT"
+        description: Defaults to DEMO-STUDENT
+    responses:
+      200:
+        description: OK
+    """
     # No auth: allow passing student_id, otherwise use demo account
     student_id = request.args.get("student_id") or "DEMO-STUDENT"
     return jsonify({"courses": CourseService.get_student_courses(student_id)})
@@ -48,6 +110,30 @@ def my_courses():
 
 @lb_bp.route("/register", methods=["POST"])
 def register_course():
+    """
+    Register a student to a course (routed through load balancer).
+    ---
+    tags:
+      - Registration
+      - Load Balancer
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [course_id]
+          properties:
+            student_id: { type: string, example: "DEMO-STUDENT" }
+            course_id: { type: string, example: "CS101" }
+    responses:
+      202:
+        description: Accepted (processed async)
+      400:
+        description: Validation or business rule error
+    """
     from ..virtual_servers import server_pool
     from ..routes import balancer_manager
     from ..ai import predictor
@@ -80,6 +166,29 @@ def register_course():
 
 @lb_bp.route("/drop", methods=["POST"])
 def drop_course():
+    """
+    Drop a registered course.
+    ---
+    tags:
+      - Registration
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [course_id]
+          properties:
+            student_id: { type: string, example: "DEMO-STUDENT" }
+            course_id: { type: string, example: "CS101" }
+    responses:
+      200:
+        description: OK
+      400:
+        description: Not found / invalid
+    """
     data = request.get_json()
     student_id = data.get("student_id") or "DEMO-STUDENT"
     course_id = data.get("course_id")
@@ -95,6 +204,15 @@ def drop_course():
 
 @lb_bp.route("/balancer/algorithm", methods=["GET"])
 def get_algorithm():
+    """
+    Get current load balancing algorithm.
+    ---
+    tags:
+      - Load Balancer
+    responses:
+      200:
+        description: OK
+    """
     from ..routes import balancer_manager
     return jsonify({
         "current": balancer_manager.get_current(),
@@ -104,6 +222,31 @@ def get_algorithm():
 
 @lb_bp.route("/balancer/algorithm", methods=["POST"])
 def set_algorithm():
+    """
+    Set load balancing algorithm.
+    ---
+    tags:
+      - Load Balancer
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [algorithm]
+          properties:
+            algorithm:
+              type: string
+              example: "least_connections"
+              enum: ["round_robin", "least_connections", "ai_based"]
+    responses:
+      200:
+        description: OK
+      400:
+        description: Unknown algorithm
+    """
     from ..routes import balancer_manager
     data = request.get_json()
     name = data.get("algorithm")
@@ -114,12 +257,39 @@ def set_algorithm():
 
 @lb_bp.route("/balancer/servers", methods=["GET"])
 def get_servers():
+    """
+    List virtual server statuses (simulated).
+    ---
+    tags:
+      - Load Balancer
+      - Servers
+    responses:
+      200:
+        description: OK
+    """
     from ..virtual_servers import server_pool
     return jsonify({"servers": server_pool.all_status()})
 
 
 @lb_bp.route("/balancer/servers/<server_id>/toggle", methods=["POST"])
 def toggle_server(server_id):
+    """
+    Toggle a virtual server alive/dead.
+    ---
+    tags:
+      - Servers
+    parameters:
+      - in: path
+        name: server_id
+        required: true
+        type: string
+        example: "SRV-01"
+    responses:
+      200:
+        description: OK
+      404:
+        description: Not found
+    """
     from ..virtual_servers import server_pool
     new_state = server_pool.toggle_server(server_id)
     if new_state is None:
@@ -129,6 +299,30 @@ def toggle_server(server_id):
 
 @lb_bp.route("/balancer/servers", methods=["POST"])
 def add_server():
+    """
+    Add a new virtual server to the pool.
+    ---
+    tags:
+      - Servers
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [server_id, name]
+          properties:
+            server_id: { type: string, example: "SRV-04" }
+            name: { type: string, example: "Delta Server" }
+            capacity: { type: integer, example: 50 }
+    responses:
+      201:
+        description: Created
+      400:
+        description: Validation error
+    """
     from ..virtual_servers import server_pool
     data = request.get_json()
     sid = data.get("server_id")
@@ -144,22 +338,64 @@ def add_server():
 
 @lb_bp.route("/analytics/summary", methods=["GET"])
 def analytics_summary():
+    """
+    Basic system summary.
+    ---
+    tags:
+      - Analytics
+    responses:
+      200:
+        description: OK
+    """
     return jsonify(AnalyticsService.get_summary())
 
 
 @lb_bp.route("/analytics/comparison", methods=["GET"])
 def analytics_comparison():
+    """
+    Compare algorithms (avg response time, totals).
+    ---
+    tags:
+      - Analytics
+    responses:
+      200:
+        description: OK
+    """
     return jsonify({"comparison": AnalyticsService.get_algorithm_comparison()})
 
 
 @lb_bp.route("/analytics/logs", methods=["GET"])
 def analytics_logs():
+    """
+    Get recent request logs.
+    ---
+    tags:
+      - Analytics
+    parameters:
+      - in: query
+        name: limit
+        required: false
+        type: integer
+        example: 50
+    responses:
+      200:
+        description: OK
+    """
     limit = request.args.get("limit", 50, type=int)
     return jsonify({"logs": AnalyticsService.get_recent_logs(limit)})
 
 
 @lb_bp.route("/analytics/prediction", methods=["GET"])
 def prediction():
+    """
+    Get current AI traffic prediction snapshot.
+    ---
+    tags:
+      - AI
+    responses:
+      200:
+        description: OK
+    """
     from ..ai import predictor
     return jsonify(predictor.to_dict())
 
@@ -171,6 +407,27 @@ def simulate_load():
     """
     Sends N fake requests through the load balancer for demonstration purposes.
     Does NOT create real registrations; only logs request_log entries.
+    ---
+    tags:
+      - Load Balancer
+      - Simulation
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            count: { type: integer, example: 25, description: "Max 100" }
+            algorithm:
+              type: string
+              example: "round_robin"
+              enum: ["round_robin", "least_connections", "ai_based"]
+    responses:
+      200:
+        description: OK
     """
     from ..ai import predictor
     from ..virtual_servers import server_pool

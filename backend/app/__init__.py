@@ -4,6 +4,7 @@ import os
 
 from flask import Flask, jsonify
 from sqlalchemy import text
+from flasgger import Swagger
 
 from .config import config as config_map
 from .extensions import cors, db, migrate, socketio
@@ -68,6 +69,34 @@ def create_app(env: str | None = None) -> Flask:
 
     app = Flask(__name__)
     app.config.from_object(config_map.get(env, config_map["default"]))
+
+    Swagger(
+        app,
+        template={
+            "swagger": "2.0",
+            "info": {
+                "title": "SmartBalance API",
+                "description": "Student portal + load balancing simulation APIs (no auth).",
+                "version": "1.0.0",
+            },
+            "basePath": "/",
+            "schemes": ["http", "https"],
+        },
+        config={
+            "headers": [],
+            "specs": [
+                {
+                    "endpoint": "apispec_1",
+                    "route": "/openapi.json",
+                    "rule_filter": lambda rule: True,
+                    "model_filter": lambda tag: True,
+                }
+            ],
+            "static_url_path": "/flasgger_static",
+            "swagger_ui": True,
+            "specs_route": "/apidocs/",
+        },
+    )
 
     # Extensions
     cors.init_app(app, resources={r"/api/*": {"origins": "*"}})

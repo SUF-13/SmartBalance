@@ -7,6 +7,35 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
+    """
+    Register a new student (no auth).
+    ---
+    tags:
+      - Auth
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [student_id, full_name, email, password]
+          properties:
+            student_id: { type: string, example: "DEMO-STUDENT" }
+            full_name: { type: string, example: "Demo Student" }
+            email: { type: string, example: "demo@student.edu" }
+            password: { type: string, example: "pass123" }
+            department: { type: string, example: "CS" }
+            semester: { type: integer, example: 1 }
+    responses:
+      201:
+        description: Created
+      400:
+        description: Validation error
+      409:
+        description: Already exists
+    """
     data = request.get_json()
     required = ["student_id", "full_name", "email", "password"]
     for field in required:
@@ -25,6 +54,31 @@ def register():
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
+    """
+    Login with email/password (no token; returns student profile).
+    ---
+    tags:
+      - Auth
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required: [email, password]
+          properties:
+            email: { type: string, example: "demo@student.edu" }
+            password: { type: string, example: "pass123" }
+    responses:
+      200:
+        description: OK
+      400:
+        description: Validation error
+      401:
+        description: Invalid credentials
+    """
     data = request.get_json()
     email = data.get("email")
     password = data.get("password")
@@ -44,6 +98,24 @@ def login():
 
 @auth_bp.route("/me", methods=["GET"])
 def me():
+    """
+    Get a student profile (no auth).
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: query
+        name: student_id
+        required: false
+        type: string
+        example: "DEMO-STUDENT"
+        description: Defaults to DEMO-STUDENT
+    responses:
+      200:
+        description: OK
+      404:
+        description: Student not found
+    """
     # No auth: allow explicit student_id, otherwise return a demo user if present.
     student_id = request.args.get("student_id") or "DEMO-STUDENT"
     student = Student.query.get(student_id)
