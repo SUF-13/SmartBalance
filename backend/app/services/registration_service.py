@@ -1,4 +1,5 @@
 import threading
+from flask import current_app
 from ..extensions import db
 from ..models.registration import Registration
 from ..models.course import Course
@@ -33,6 +34,9 @@ class RegistrationService:
         if not server:
             return {"success": False, "error": "No servers available"}
 
+        # Dereference Flask's proxy object before starting a background thread.
+        app = current_app._get_current_object()
+
         # Process in background thread to not block the response
         def process():
             result = server.handle_request({
@@ -42,18 +46,19 @@ class RegistrationService:
 
             predictor.record(server.active_connections)
 
-            with db.engine.connect() as conn:
-                from sqlalchemy.orm import Session
-                with Session(db.engine) as session:
-                    log = RequestLog(
-                        student_id=student_id,
-                        course_id=course_id,
-                        server_id=server.server_id,
-                        algorithm_used=algorithm,
-                        response_time=result.get("response_time", 0),
-                        status="success" if result["success"] else "failed"
-                    )
-                    session.add(log)
+            with app.app_context():
+                with db.engine.connect() as conn:
+                    from sqlalchemy.orm import Session
+                    with Session(db.engine) as session:
+                        log = RequestLog(
+                            student_id=student_id,
+                            course_id=course_id,
+                            server_id=server.server_id,
+                            algorithm_used=algorithm,
+                            response_time=result.get("response_time", 0),
+                            status="success" if result["success"] else "failed"
+                        )
+                        session.add(log)
 
                     if result["success"]:
                         reg = Registration(

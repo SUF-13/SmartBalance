@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 import time, random, threading
 
 from ..extensions import db, socketio
@@ -439,6 +439,9 @@ def simulate_load():
 
     balancer_manager.set_algorithm(algorithm)
 
+    # Dereference Flask's proxy object before starting a background thread.
+    app = current_app._get_current_object()
+
     def _simulate():
         for _ in range(n):
             servers = server_pool.all_alive()
@@ -450,19 +453,20 @@ def simulate_load():
             result = server.handle_request({"simulated": True})
             predictor.record(server.active_connections)
 
-            with db.engine.connect() as conn:
-                from sqlalchemy.orm import Session
-                with Session(db.engine) as session:
-                    log = RequestLog(
-                        student_id=None,
-                        course_id=None,
-                        server_id=server.server_id,
-                        algorithm_used=algorithm,
-                        response_time=result.get("response_time", 0),
-                        status="success" if result["success"] else "failed",
-                    )
-                    session.add(log)
-                    session.commit()
+            with app.app_context():
+                with db.engine.connect() as conn:
+                    from sqlalchemy.orm import Session
+                    with Session(db.engine) as session:
+                        log = RequestLog(
+                            student_id=None,
+                            course_id=None,
+                            server_id=server.server_id,
+                            algorithm_used=algorithm,
+                            response_time=result.get("response_time", 0),
+                            status="success" if result["success"] else "failed",
+                        )
+                        session.add(log)
+                        session.commit()
 
             socketio.emit("request_processed", {
                 "result": result,
