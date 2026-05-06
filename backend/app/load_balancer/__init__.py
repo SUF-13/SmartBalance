@@ -1,0 +1,1 @@
+from .routes import lb_bp

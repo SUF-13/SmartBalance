@@ -69,7 +69,7 @@ class RegistrationService:
                     session.commit()
 
             # Broadcast real-time update to dashboard
-            from .. import server_pool
+            from ..virtual_servers import server_pool
             socketio.emit("request_processed", {
                 "result":  result,
                 "servers": server_pool.all_status()

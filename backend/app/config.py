@@ -4,10 +4,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY')
-    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-jwt-secret")
     JWT_ACCESS_TOKEN_EXPIRES = 3600 
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    # Prefer env var, but default to a local SQLite DB so the project runs out-of-the-box.
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///smartbalance.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
