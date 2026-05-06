@@ -1,6 +1,7 @@
 from ..models.request_log import RequestLog
 from ..models.registration import Registration
 from sqlalchemy import func
+from ..extensions import db
 
 class AnalyticsService:
 
