@@ -11,6 +11,27 @@ class Student(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     department = db.Column(db.String(50))
     semester = db.Column(db.Integer)
+    degree = db.Column(db.String(100))
+    batch = db.Column(db.String(50))
+    section = db.Column(db.String(20))
+    campus = db.Column(db.String(100))
+
+    gender = db.Column(db.String(20))
+    dob = db.Column(db.String(20))
+    cnic = db.Column(db.String(25))
+    mobile_no = db.Column(db.String(25))
+    blood_group = db.Column(db.String(10))
+    nationality = db.Column(db.String(50))
+
+    address = db.Column(db.String(255))
+    home_phone = db.Column(db.String(30))
+    postal_code = db.Column(db.String(20))
+    city = db.Column(db.String(50))
+    country = db.Column(db.String(50))
+
+    warning_count = db.Column(db.Integer, default=0)
+    credits_earned = db.Column(db.Integer, default=0)
+    credits_attempted = db.Column(db.Integer, default=0)
     cgpa = db.Column(db.Numeric(3, 2))
     credit_hours_completed = db.Column(db.Integer, default=0)
     enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -32,6 +53,24 @@ class Student(db.Model):
             'email': self.email,
             'department': self.department,
             'semester': self.semester,
+            'degree': self.degree,
+            'batch': self.batch,
+            'section': self.section,
+            'campus': self.campus,
+            'gender': self.gender,
+            'dob': self.dob,
+            'cnic': self.cnic,
+            'mobile_no': self.mobile_no,
+            'blood_group': self.blood_group,
+            'nationality': self.nationality,
+            'address': self.address,
+            'home_phone': self.home_phone,
+            'postal_code': self.postal_code,
+            'city': self.city,
+            'country': self.country,
+            'warning_count': self.warning_count,
+            'credits_earned': self.credits_earned,
+            'credits_attempted': self.credits_attempted,
             'cgpa': float(self.cgpa) if self.cgpa is not None else None,
             'credit_hours_completed': self.credit_hours_completed,
             'enrolled_at': self.enrolled_at.isoformat(),

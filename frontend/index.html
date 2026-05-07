@@ -12,7 +12,7 @@
       <h1 class="brand-title">Student Portal</h1>
       <h2 class="section-title">Sign In</h2>
 
-      <form class="form" action="./home.html" method="get">
+      <form class="form" id="loginForm">
         <label for="rollNumber">Roll No.</label>
         <input
           id="rollNumber"
@@ -32,8 +32,40 @@
         />
 
         <button type="submit" class="btn-signin">Sign In</button>
+        <p id="loginMessage" class="status-text"></p>
       </form>
     </section>
   </main>
+  <script>
+    const API_BASE = "http://localhost:5000/api";
+    const form = document.getElementById("loginForm");
+    const message = document.getElementById("loginMessage");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      message.textContent = "Signing in...";
+
+      const studentId = document.getElementById("rollNumber").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: studentId, password }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Unable to sign in.");
+        }
+
+        localStorage.setItem("student_id", data.student.student_id);
+        window.location.href = "./home.html";
+      } catch (error) {
+        message.textContent = error.message;
+      }
+    });
+  </script>
 </body>
 </html>

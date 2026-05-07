@@ -24,50 +24,87 @@
       <section class="info-grid">
         <article class="info-card">
           <div class="info-card-title">University Information</div>
-          <div class="info-card-body">
-            <p><strong>Roll Number:</strong> 25K-0789</p>
-            <p><strong>Degree:</strong> BS(CS)</p>
-            <p><strong>Batch:</strong> Fall 2025</p>
-            <p><strong>Section:</strong> BCS-2A</p>
-            <p><strong>Campus:</strong> Main Campus</p>
-          </div>
+          <div class="info-card-body" id="universityInformation"></div>
         </article>
 
         <article class="info-card">
           <div class="info-card-title">Academic Calendar</div>
-          <div class="info-card-body">
-            <p><strong>Registration:</strong> 10 Jan 2026 - 20 Jan 2026</p>
-            <p><strong>Classes:</strong> 02 Feb 2026 - 10 Jun 2026</p>
-            <p><strong>Online Withdrawal Request:</strong> 15 Mar 2026 - 25 Mar 2026</p>
-          </div>
+          <div class="info-card-body" id="academicCalendar"></div>
         </article>
 
         <article class="info-card">
           <div class="info-card-title">Personal Information</div>
-          <div class="info-card-body">
-            <p><strong>Name:</strong> Muhammad Sufyan Ali</p>
-            <p><strong>Gender:</strong> Male</p>
-            <p><strong>Email:</strong> sufyan@example.com</p>
-            <p><strong>DOB:</strong> 08/25/2004</p>
-            <p><strong>CNIC:</strong> 42201-5049666-3</p>
-            <p><strong>Mobile No:</strong> 0334-2228071</p>
-            <p><strong>Blood Group:</strong> O</p>
-            <p><strong>Nationality:</strong> Pakistani</p>
-          </div>
+          <div class="info-card-body" id="personalInformation"></div>
         </article>
 
         <article class="info-card">
           <div class="info-card-title">Contact Information</div>
-          <div class="info-card-body">
-            <p><strong>Address:</strong> H No S-7, Tariq Street 6, DHA, Karachi</p>
-            <p><strong>Home Phone:</strong> 021-111222333</p>
-            <p><strong>Postal Code:</strong> 75500</p>
-            <p><strong>City:</strong> Karachi</p>
-            <p><strong>Country:</strong> Pakistan</p>
-          </div>
+          <div class="info-card-body" id="contactInformation"></div>
         </article>
       </section>
     </main>
   </div>
+
+  <script>
+    const API_BASE = "http://localhost:5000/api";
+
+    const toLine = (label, value) =>
+      `<p><strong>${label}:</strong> ${value ?? "-"}</p>`;
+
+    function renderMap(elementId, data, labels) {
+      const element = document.getElementById(elementId);
+      element.innerHTML = labels
+        .map(([key, label]) => toLine(label, data?.[key]))
+        .join("");
+    }
+
+    async function loadHome() {
+      const studentId = localStorage.getItem("student_id") || "DEMO-STUDENT";
+      try {
+        const response = await fetch(
+          `${API_BASE}/student/home?student_id=${encodeURIComponent(studentId)}`
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load home data.");
+        }
+
+        renderMap("universityInformation", data.university_information, [
+          ["roll_number", "Roll Number"],
+          ["degree", "Degree"],
+          ["batch", "Batch"],
+          ["section", "Section"],
+          ["campus", "Campus"],
+        ]);
+        renderMap("academicCalendar", data.academic_calendar, [
+          ["registration", "Registration"],
+          ["classes", "Classes"],
+          ["online_withdrawal_request", "Online Withdrawal Request"],
+        ]);
+        renderMap("personalInformation", data.personal_information, [
+          ["name", "Name"],
+          ["gender", "Gender"],
+          ["email", "Email"],
+          ["dob", "DOB"],
+          ["cnic", "CNIC"],
+          ["mobile_no", "Mobile No"],
+          ["blood_group", "Blood Group"],
+          ["nationality", "Nationality"],
+        ]);
+        renderMap("contactInformation", data.contact_information, [
+          ["address", "Address"],
+          ["home_phone", "Home Phone"],
+          ["postal_code", "Postal Code"],
+          ["city", "City"],
+          ["country", "Country"],
+        ]);
+      } catch (error) {
+        document.getElementById("universityInformation").innerHTML =
+          `<p class="status-text">${error.message}</p>`;
+      }
+    }
+
+    loadHome();
+  </script>
 </body>
 </html>

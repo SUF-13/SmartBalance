@@ -29,21 +29,7 @@
         </div>
 
         <div class="tab-panel active" id="student-info">
-          <div class="student-info-box">
-            <p><strong>Name:</strong> Muhammad Sufyan Ali</p>
-            <p><strong>Roll Number:</strong> 25K-0789</p>
-            <p><strong>Program:</strong> BS(CS)</p>
-            <p><strong>Batch:</strong> Fall 2025</p>
-            <p><strong>Section:</strong> BCS-2A</p>
-            <p><strong>Course Limit for Semester:</strong> 6</p>
-            <p><strong>Registered Courses:</strong> 6</p>
-            <p><strong>Registered Credits:</strong> 19</p>
-            <p><strong>Semester:</strong> Spring 2026</p>
-            <p><strong>Warning Count:</strong> 0</p>
-            <p><strong>Credits Earned:</strong> 83</p>
-            <p><strong>Credits Attempted:</strong> 102</p>
-            <p><strong>CGPA:</strong> 3.17</p>
-          </div>
+          <div class="student-info-box" id="studentInfo"></div>
         </div>
 
         <div class="tab-panel" id="courses-available">
@@ -63,60 +49,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr class="row-available">
-                  <td>1</td>
-                  <td>Technical and Business Writing</td>
-                  <td>3</td>
-                  <td>Core</td>
-                  <td>Not Registered</td>
-                  <td>
-                    <select>
-                      <option>RCS-6A</option>
-                      <option>RCS-6B</option>
-                    </select>
-                  </td>
-                </tr>
-                <tr class="row-available">
-                  <td>2</td>
-                  <td>Applied Human Computer Interaction</td>
-                  <td>3</td>
-                  <td>Core</td>
-                  <td>Not Registered</td>
-                  <td>
-                    <select>
-                      <option>RCS-6A</option>
-                      <option>RCS-6B</option>
-                    </select>
-                  </td>
-                </tr>
-                <tr class="improvement-row">
-                  <td colspan="6">Improvement Courses</td>
-                </tr>
-                <tr class="row-available">
-                  <td>3</td>
-                  <td>Applied Physics</td>
-                  <td>3</td>
-                  <td>Core</td>
-                  <td>Not Registered</td>
-                  <td>
-                    <select>
-                      <option>RCS-4A</option>
-                      <option>RCS-4B</option>
-                    </select>
-                  </td>
-                </tr>
-                <tr class="row-available">
-                  <td>4</td>
-                  <td>Expository Writing</td>
-                  <td>3</td>
-                  <td>Core</td>
-                  <td>Not Registered</td>
-                  <td>
-                    <select>
-                      <option>RCS-1A</option>
-                      <option>RCS-1B</option>
-                    </select>
-                  </td>
+                <tr>
+                  <td colspan="6">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -137,44 +71,7 @@
                   <th>Section</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr class="row-registered">
-                  <td>1</td>
-                  <td>SS2012</td>
-                  <td>Technical and Business Writing</td>
-                  <td>3</td>
-                  <td>Core</td>
-                  <td>Registered</td>
-                  <td>RCS-6A</td>
-                </tr>
-                <tr class="row-registered">
-                  <td>2</td>
-                  <td>CS3044</td>
-                  <td>Applied Human Computer Interaction</td>
-                  <td>3</td>
-                  <td>Core</td>
-                  <td>Registered</td>
-                  <td>RCS-6A</td>
-                </tr>
-                <tr class="row-registered">
-                  <td>3</td>
-                  <td>AI2002</td>
-                  <td>Artificial Intelligence</td>
-                  <td>3</td>
-                  <td>Core</td>
-                  <td>Registered</td>
-                  <td>RCS-6A</td>
-                </tr>
-                <tr class="row-registered">
-                  <td>4</td>
-                  <td>CS4045</td>
-                  <td>Deep Learning for Perception</td>
-                  <td>3</td>
-                  <td>Elective</td>
-                  <td>Registered</td>
-                  <td>RCS-6A</td>
-                </tr>
-              </tbody>
+              <tbody id="registeredCoursesBody"></tbody>
             </table>
           </div>
         </div>
@@ -183,8 +80,11 @@
   </div>
 
   <script>
+    const API_BASE = "http://localhost:5000/api";
     const tabButtons = document.querySelectorAll(".tab-btn");
     const tabPanels = document.querySelectorAll(".tab-panel");
+    const studentId = localStorage.getItem("student_id") || "DEMO-STUDENT";
+    let selectedCourseId = null;
 
     tabButtons.forEach((button) => {
       button.addEventListener("click", () => {
@@ -198,15 +98,135 @@
       });
     });
 
-    const registerButton = document.getElementById("registerButton");
-    registerButton.addEventListener("click", () => {
-      const shouldRegister = window.confirm(
-        "Are you sure you want to register?"
-      );
+    function renderStudentInfo(studentInfo) {
+      const fieldOrder = [
+        ["name", "Name"],
+        ["roll_number", "Roll Number"],
+        ["program", "Program"],
+        ["batch", "Batch"],
+        ["section", "Section"],
+        ["course_limit_for_semester", "Course Limit for Semester"],
+        ["registered_courses", "Registered Courses"],
+        ["registered_credits", "Registered Credits"],
+        ["semester", "Semester"],
+        ["warning_count", "Warning Count"],
+        ["credits_earned", "Credits Earned"],
+        ["credits_attempted", "Credits Attempted"],
+        ["cgpa", "CGPA"],
+      ];
 
-      if (shouldRegister) {
-        window.alert("Registration confirmed.");
+      document.getElementById("studentInfo").innerHTML = fieldOrder
+        .map(([key, label]) => `<p><strong>${label}:</strong> ${studentInfo[key] ?? "-"}</p>`)
+        .join("");
+    }
+
+    function makeAvailableRow(course) {
+      const sectionOptions = (course.sections || [])
+        .map((section) => `<option value="${section}">${section}</option>`)
+        .join("");
+
+      return `
+        <tr class="row-available">
+          <td>${course.sr}</td>
+          <td>${course.course_name}</td>
+          <td>${course.cr_hrs}</td>
+          <td>${course.relation}</td>
+          <td>${course.status}</td>
+          <td>
+            <select class="section-select" data-course-id="${course.course_id}">
+              ${sectionOptions}
+            </select>
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderAvailableCourses(data) {
+      const tableBody = document.querySelector("#courses-available tbody");
+      const offeredRows = data.courses_available.map(makeAvailableRow).join("");
+      const improvementRows = data.improvement_courses.map(makeAvailableRow).join("");
+      const improvementBlock = data.improvement_courses.length
+        ? `<tr class="improvement-row"><td colspan="6">Improvement Courses</td></tr>${improvementRows}`
+        : "";
+
+      tableBody.innerHTML = offeredRows + improvementBlock;
+
+      const firstSelect = tableBody.querySelector(".section-select");
+      selectedCourseId = firstSelect ? firstSelect.dataset.courseId : null;
+      tableBody.querySelectorAll(".section-select").forEach((select) => {
+        select.addEventListener("change", () => {
+          selectedCourseId = select.dataset.courseId;
+        });
+        select.addEventListener("click", () => {
+          selectedCourseId = select.dataset.courseId;
+        });
+      });
+    }
+
+    function renderRegisteredCourses(data) {
+      const body = document.getElementById("registeredCoursesBody");
+      body.innerHTML = data.courses_registered
+        .map(
+          (course) => `
+          <tr class="row-registered">
+            <td>${course.sr}</td>
+            <td>${course.course_code}</td>
+            <td>${course.course_name}</td>
+            <td>${course.cr_hrs}</td>
+            <td>${course.relation}</td>
+            <td>${course.status}</td>
+            <td>${course.section}</td>
+          </tr>
+        `
+        )
+        .join("");
+    }
+
+    async function fetchRegistrationData() {
+      const response = await fetch(
+        `${API_BASE}/student/registration-data?student_id=${encodeURIComponent(studentId)}`
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load registration data.");
       }
+      renderStudentInfo(data.student_info);
+      renderAvailableCourses(data);
+      renderRegisteredCourses(data);
+    }
+
+    const registerButton = document.getElementById("registerButton");
+    registerButton.addEventListener("click", async () => {
+      if (!selectedCourseId) {
+        window.alert("Please select a course row first.");
+        return;
+      }
+
+      const shouldRegister = window.confirm("Are you sure you want to register?");
+      if (!shouldRegister) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: studentId, course_id: selectedCourseId }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Registration failed.");
+        }
+        window.alert("Registration request submitted.");
+        setTimeout(fetchRegistrationData, 350);
+      } catch (error) {
+        window.alert(error.message);
+      }
+    });
+
+    fetchRegistrationData().catch((error) => {
+      document.getElementById("studentInfo").innerHTML =
+        `<p class="status-text">${error.message}</p>`;
     });
   </script>
 </body>

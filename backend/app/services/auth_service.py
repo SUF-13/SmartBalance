@@ -1,4 +1,3 @@
-from flask_jwt_extended import create_access_token
 from ..models.student import Student
 from ..extensions import db
 
@@ -29,9 +28,11 @@ class AuthService:
         return student, None
 
     @staticmethod
-    def login(email, password):
-        """Verify credentials and return JWT token"""
-        student = Student.query.filter_by(email=email).first()
+    def login(identifier, password):
+        """Verify credentials by email or student_id."""
+        student = Student.query.filter_by(email=identifier).first()
+        if not student:
+            student = Student.query.filter_by(student_id=identifier).first()
 
         if not student or not student.check_password(password):
             return None, None, "Invalid email or password"
@@ -39,5 +40,4 @@ class AuthService:
         if not student.is_active:
             return None, None, "Account is deactivated"
 
-        token = create_access_token(identity=student.student_id)
-        return student, token, None
+        return student, None, None

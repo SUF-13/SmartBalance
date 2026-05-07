@@ -5,6 +5,8 @@ from ..extensions import db, socketio
 from ..models.request_log import RequestLog
 from ..models.registration import Registration
 from ..models.course import Course
+from ..models.student import Student
+from ..models.academic_calendar import AcademicCalendar
 from ..services.course_service import CourseService
 from ..services.registration_service import RegistrationService
 from ..services.analytics_service import AnalyticsService
@@ -104,6 +106,151 @@ def my_courses():
     # No auth: allow passing student_id, otherwise use demo account
     student_id = request.args.get("student_id") or "DEMO-STUDENT"
     return jsonify({"courses": CourseService.get_student_courses(student_id)})
+
+
+@lb_bp.route("/student/home", methods=["GET"])
+def student_home():
+    """
+    Get home page dataset for a student.
+    """
+    student_id = request.args.get("student_id") or "DEMO-STUDENT"
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"error": "Student not found"}), 404
+
+    calendar = AcademicCalendar.query.order_by(AcademicCalendar.id.desc()).first()
+    calendar_data = calendar.to_dict() if calendar else None
+
+    return jsonify(
+        {
+            "student_id": student.student_id,
+            "university_information": {
+                "roll_number": student.student_id,
+                "degree": student.degree,
+                "batch": student.batch,
+                "section": student.section,
+                "campus": student.campus,
+            },
+            "academic_calendar": {
+                "registration": (
+                    f"{calendar_data['registration_start']} - {calendar_data['registration_end']}"
+                    if calendar_data
+                    else None
+                ),
+                "classes": (
+                    f"{calendar_data['classes_start']} - {calendar_data['classes_end']}"
+                    if calendar_data
+                    else None
+                ),
+                "online_withdrawal_request": (
+                    f"{calendar_data['withdrawal_start']} - {calendar_data['withdrawal_end']}"
+                    if calendar_data
+                    else None
+                ),
+            },
+            "personal_information": {
+                "name": student.full_name,
+                "gender": student.gender,
+                "email": student.email,
+                "dob": student.dob,
+                "cnic": student.cnic,
+                "mobile_no": student.mobile_no,
+                "blood_group": student.blood_group,
+                "nationality": student.nationality,
+            },
+            "contact_information": {
+                "address": student.address,
+                "home_phone": student.home_phone,
+                "postal_code": student.postal_code,
+                "city": student.city,
+                "country": student.country,
+            },
+        }
+    )
+
+
+@lb_bp.route("/student/registration-data", methods=["GET"])
+def student_registration_data():
+    """
+    Get all data needed by course registration page.
+    """
+    student_id = request.args.get("student_id") or "DEMO-STUDENT"
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"error": "Student not found"}), 404
+
+    registered = (
+        Registration.query.filter_by(student_id=student_id, status="enrolled")
+        .order_by(Registration.registration_id.asc())
+        .all()
+    )
+    registered_course_ids = {r.course_id for r in registered}
+    registered_credits = sum((r.course.credit_hours or 0) for r in registered if r.course)
+
+    all_courses = (
+        Course.query.filter_by(is_active=True)
+        .order_by(Course.semester.asc(), Course.course_id.asc())
+        .all()
+    )
+    available_courses = [c for c in all_courses if c.course_id not in registered_course_ids]
+    improvement_courses = [c for c in available_courses if (c.semester or 0) < (student.semester or 0)]
+    offered_courses = [c for c in available_courses if c not in improvement_courses]
+
+    return jsonify(
+        {
+            "student_info": {
+                "name": student.full_name,
+                "roll_number": student.student_id,
+                "program": student.degree or student.department,
+                "batch": student.batch,
+                "section": student.section,
+                "course_limit_for_semester": 6,
+                "registered_courses": len(registered),
+                "registered_credits": registered_credits,
+                "semester": f"Semester {student.semester}" if student.semester is not None else None,
+                "warning_count": student.warning_count,
+                "credits_earned": student.credits_earned,
+                "credits_attempted": student.credits_attempted,
+                "cgpa": float(student.cgpa) if student.cgpa is not None else None,
+            },
+            "courses_available": [
+                {
+                    "sr": idx + 1,
+                    "course_id": c.course_id,
+                    "course_name": c.course_name,
+                    "cr_hrs": c.credit_hours,
+                    "relation": "Core",
+                    "status": "Not Registered",
+                    "sections": ["RCS-6A", "RCS-6B", "RCS-6C"],
+                }
+                for idx, c in enumerate(offered_courses)
+            ],
+            "improvement_courses": [
+                {
+                    "sr": idx + 1,
+                    "course_id": c.course_id,
+                    "course_name": c.course_name,
+                    "cr_hrs": c.credit_hours,
+                    "relation": "Improvement",
+                    "status": "Not Registered",
+                    "sections": ["RCS-4A", "RCS-4B"],
+                }
+                for idx, c in enumerate(improvement_courses)
+            ],
+            "courses_registered": [
+                {
+                    "sr": idx + 1,
+                    "course_code": r.course_id,
+                    "course_name": r.course.course_name if r.course else None,
+                    "cr_hrs": r.course.credit_hours if r.course else None,
+                    "relation": "Core",
+                    "status": "Registered",
+                    "section": "RCS-6A",
+                }
+                for idx, r in enumerate(registered)
+            ],
+        }
+    )
 
 
 # ─── Registration ─────────────────────────────────────────────────────────────

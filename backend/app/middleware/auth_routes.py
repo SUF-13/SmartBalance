@@ -79,12 +79,12 @@ def login():
       401:
         description: Invalid credentials
     """
-    data = request.get_json()
-    email = data.get("email")
+    data = request.get_json() or {}
+    email = data.get("email") or data.get("student_id")
     password = data.get("password")
 
     if not email or not password:
-        return jsonify({"error": "email and password are required"}), 400
+        return jsonify({"error": "student_id/email and password are required"}), 400
 
     student, _token, err = AuthService.login(email, password)
     if err:
