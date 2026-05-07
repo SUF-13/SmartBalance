@@ -223,7 +223,11 @@ def create_app(env: str | None = None) -> Flask:
     )
 
     # Extensions
-    cors.init_app(app, resources={r"/api/*": {"origins": "*"}})
+    cors.init_app(
+        app,
+        resources={r"/api/*": {"origins": "*"}},
+        allow_headers=["Content-Type", "Authorization"],
+    )
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)

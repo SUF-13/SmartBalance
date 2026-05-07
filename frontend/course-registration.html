@@ -90,6 +90,10 @@
 
   <script>
     const API_BASE = "http://localhost:5000/api";
+    const authHeaders = () => {
+      const token = localStorage.getItem("token");
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    };
     const tabButtons = document.querySelectorAll(".tab-btn");
     const tabPanels = document.querySelectorAll(".tab-panel");
     const studentId = localStorage.getItem("student_id") || "DEMO-STUDENT";
@@ -97,6 +101,7 @@
     let registeredCourseIds = new Set();
     document.getElementById("logoutBtn").addEventListener("click", () => {
       localStorage.removeItem("student_id");
+      localStorage.removeItem("token");
       window.location.href = "./index.html";
     });
 
@@ -231,8 +236,12 @@
           try {
             const response = await fetch(`${API_BASE}/drop`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ student_id: studentId, course_id: courseId }),
+              headers: {
+                "Content-Type": "application/json",
+                ...authHeaders(),
+              },
+              // Backend derives student identity from JWT.
+              body: JSON.stringify({ course_id: courseId }),
             });
             const result = await response.json();
             if (!response.ok) {
@@ -332,8 +341,12 @@
         for (const courseId of selectedCourseIds) {
           const response = await fetch(`${API_BASE}/register`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ student_id: studentId, course_id: courseId }),
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeaders(),
+            },
+            // Backend derives student identity from JWT.
+            body: JSON.stringify({ course_id: courseId }),
           });
           const data = await response.json();
           if (!response.ok) {
