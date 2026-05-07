@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Portal - Server Analytics</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="app-shell-body">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h1 class="sidebar-title">Student Portal</h1>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link" href="./home.html">Home</a>
+        <a class="sidebar-link" href="./course-registration.html">Course Registration</a>
+        <a class="sidebar-link active" href="./analytics.html">Server Analytics</a>
+      </nav>
+      <button id="logoutBtn" class="sidebar-logout">Logout</button>
+    </aside>
+
+    <main class="content">
+      <header class="content-header">
+        <h2>Server Analytics Dashboard</h2>
+      </header>
+
+      <section class="analytics-grid">
+        <article class="analytics-card">
+          <h3>Current Algorithm</h3>
+          <p id="currentAlgorithm">Loading...</p>
+          <div class="analytics-actions">
+            <select id="algorithmSelect" class="analytics-select"></select>
+            <button id="setAlgorithmBtn" class="btn-check">Set Algorithm</button>
+          </div>
+        </article>
+
+        <article class="analytics-card">
+          <h3>System Summary</h3>
+          <div id="summaryBlock">Loading...</div>
+        </article>
+
+        <article class="analytics-card analytics-span-2">
+          <h3>Algorithm Comparison</h3>
+          <div class="table-wrap">
+            <table class="portal-table analytics-table">
+              <thead>
+                <tr>
+                  <th>Algorithm</th>
+                  <th>Total Requests</th>
+                  <th>Avg Response Time</th>
+                  <th>Success Count</th>
+                  <th>Failure Count</th>
+                </tr>
+              </thead>
+              <tbody id="comparisonBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="analytics-card">
+          <h3>Server Pool Status</h3>
+          <div class="table-wrap">
+            <table class="portal-table analytics-table">
+              <thead>
+                <tr>
+                  <th>Server</th>
+                  <th>Status</th>
+                  <th>Connections</th>
+                  <th>CPU</th>
+                </tr>
+              </thead>
+              <tbody id="serversBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="analytics-card">
+          <h3>AI Prediction</h3>
+          <div id="predictionBlock">Loading...</div>
+          <div class="analytics-actions">
+            <button id="simulateBtn" class="btn-check">Run Simulation</button>
+            <button id="refreshBtn" class="btn-register">Refresh Data</button>
+          </div>
+        </article>
+
+        <article class="analytics-card analytics-span-2">
+          <h3>Recent Request Logs</h3>
+          <div class="table-wrap">
+            <table class="portal-table analytics-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Server</th>
+                  <th>Algorithm</th>
+                  <th>Status</th>
+                  <th>Response</th>
+                </tr>
+              </thead>
+              <tbody id="logsBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:5000/api";
+
+    const currentAlgorithmEl = document.getElementById("currentAlgorithm");
+    const algorithmSelect = document.getElementById("algorithmSelect");
+    const summaryBlock = document.getElementById("summaryBlock");
+    const comparisonBody = document.getElementById("comparisonBody");
+    const serversBody = document.getElementById("serversBody");
+    const predictionBlock = document.getElementById("predictionBlock");
+    const logsBody = document.getElementById("logsBody");
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("student_id");
+      window.location.href = "./index.html";
+    });
+
+    function kvLine(label, value) {
+      return `<p><strong>${label}:</strong> ${value ?? "-"}</p>`;
+    }
+
+    async function getJson(path, options) {
+      const response = await fetch(`${API_BASE}${path}`, options);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Request failed.");
+      }
+      return data;
+    }
+
+    async function loadAlgorithm() {
+      const data = await getJson("/balancer/algorithm");
+      currentAlgorithmEl.textContent = data.current;
+      algorithmSelect.innerHTML = data.available
+        .map((algo) => `<option value="${algo}">${algo}</option>`)
+        .join("");
+      algorithmSelect.value = data.current;
+    }
+
+    async function loadSummary() {
+      const data = await getJson("/analytics/summary");
+      summaryBlock.innerHTML = [
+        kvLine("Total Requests", data.total_requests),
+        kvLine("Success Requests", data.successful),
+        kvLine("Failed Requests", data.failed),
+        kvLine("Total Enrollments", data.total_enrollments),
+        kvLine("Success Rate", `${data.success_rate}%`),
+      ].join("");
+    }
+
+    async function loadComparison() {
+      const data = await getJson("/analytics/comparison");
+      const rows = data.comparison || [];
+      comparisonBody.innerHTML = rows.length
+        ? rows
+            .map(
+              (row) => `
+                <tr>
+                  <td>${row.algorithm}</td>
+                  <td>${row.total}</td>
+                  <td>${row.avg_response}</td>
+                  <td>${row.total - row.failed}</td>
+                  <td>${row.failed}</td>
+                </tr>
+              `
+            )
+            .join("")
+        : `<tr><td colspan="5">No analytics data yet.</td></tr>`;
+    }
+
+    async function loadServers() {
+      const data = await getJson("/balancer/servers");
+      const servers = data.servers || [];
+      serversBody.innerHTML = servers.length
+        ? servers
+            .map(
+              (server) => `
+                <tr>
+                  <td>${server.name || server.server_name || server.server_id}</td>
+                  <td>${server.is_alive ? "Alive" : "Down"}</td>
+                  <td>${server.active_connections ?? 0}</td>
+                  <td>${server.cpu_usage ?? 0}% <button class="btn-toggle" data-server-id="${server.server_id}">Toggle</button></td>
+                </tr>
+              `
+            )
+            .join("")
+        : `<tr><td colspan="4">No servers found.</td></tr>`;
+
+      serversBody.querySelectorAll(".btn-toggle").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const serverId = button.dataset.serverId;
+          try {
+            await getJson(`/balancer/servers/${encodeURIComponent(serverId)}/toggle`, {
+              method: "POST",
+            });
+            await refreshAll();
+          } catch (error) {
+            window.alert(error.message);
+          }
+        });
+      });
+    }
+
+    async function loadPrediction() {
+      const data = await getJson("/analytics/prediction");
+      predictionBlock.innerHTML = [
+        kvLine("Current Prediction", data.predicted_load),
+        kvLine("History Count", (data.history || []).length),
+        kvLine("Moving Average", data.moving_avg),
+        kvLine("Model", "EMA Predictor"),
+      ].join("");
+    }
+
+    async function loadLogs() {
+      const data = await getJson("/analytics/logs?limit=12");
+      const logs = data.logs || [];
+      logsBody.innerHTML = logs.length
+        ? logs
+            .map(
+              (log) => `
+                <tr>
+                  <td>${(log.requested_at || "").replace("T", " ").slice(0, 19)}</td>
+                  <td>${log.server_id || "-"}</td>
+                  <td>${log.algorithm_used || "-"}</td>
+                  <td>${log.status || "-"}</td>
+                  <td>${log.response_time ?? "-"}</td>
+                </tr>
+              `
+            )
+            .join("")
+        : `<tr><td colspan="5">No logs available.</td></tr>`;
+    }
+
+    async function refreshAll() {
+      try {
+        await Promise.all([
+          loadAlgorithm(),
+          loadSummary(),
+          loadComparison(),
+          loadServers(),
+          loadPrediction(),
+          loadLogs(),
+        ]);
+      } catch (error) {
+        summaryBlock.innerHTML = `<p class="status-text">${error.message}</p>`;
+      }
+    }
+
+    document.getElementById("setAlgorithmBtn").addEventListener("click", async () => {
+      try {
+        const algorithm = algorithmSelect.value;
+        await getJson("/balancer/algorithm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ algorithm }),
+        });
+        await refreshAll();
+      } catch (error) {
+        window.alert(error.message);
+      }
+    });
+
+    document.getElementById("refreshBtn").addEventListener("click", refreshAll);
+    document.getElementById("simulateBtn").addEventListener("click", async () => {
+      try {
+        await getJson("/simulate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ count: 15, algorithm: algorithmSelect.value }),
+        });
+        setTimeout(refreshAll, 500);
+      } catch (error) {
+        window.alert(error.message);
+      }
+    });
+
+    refreshAll();
+  </script>
+</body>
+</html>

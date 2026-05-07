@@ -13,7 +13,9 @@
       <nav class="sidebar-nav">
         <a class="sidebar-link" href="./home.html">Home</a>
         <a class="sidebar-link active" href="./course-registration.html">Course Registration</a>
+        <a class="sidebar-link" href="./analytics.html">Server Analytics</a>
       </nav>
+      <button id="logoutBtn" class="sidebar-logout">Logout</button>
     </aside>
 
     <main class="content">
@@ -34,6 +36,9 @@
 
         <div class="tab-panel" id="courses-available">
           <div class="table-top-actions">
+            <select id="deptFilter" class="analytics-select">
+              <option value="">All Departments</option>
+            </select>
             <button id="checkSelectedButton" class="btn-check">Check Selected</button>
             <button id="registerButton" class="btn-register">Register</button>
           </div>
@@ -72,6 +77,7 @@
                   <th>Relation</th>
                   <th>Status</th>
                   <th>Section</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody id="registeredCoursesBody"></tbody>
@@ -88,6 +94,12 @@
     const tabPanels = document.querySelectorAll(".tab-panel");
     const studentId = localStorage.getItem("student_id") || "DEMO-STUDENT";
     let selectedCourseIds = [];
+    let registeredCourseIds = new Set();
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("student_id");
+      window.location.href = "./index.html";
+    });
+
 
     tabButtons.forEach((button) => {
       button.addEventListener("click", () => {
@@ -149,8 +161,14 @@
 
     function renderAvailableCourses(data) {
       const tableBody = document.querySelector("#courses-available tbody");
-      const offeredRows = data.courses_available.map(makeAvailableRow).join("");
-      const improvementRows = data.improvement_courses.map(makeAvailableRow).join("");
+      const offeredRows = data.courses_available
+        .filter((course) => !registeredCourseIds.has(course.course_id))
+        .map(makeAvailableRow)
+        .join("");
+      const improvementRows = data.improvement_courses
+        .filter((course) => !registeredCourseIds.has(course.course_id))
+        .map(makeAvailableRow)
+        .join("");
       const improvementBlock = data.improvement_courses.length
         ? `<tr class="improvement-row"><td colspan="7">Improvement Courses</td></tr>${improvementRows}`
         : "";
@@ -183,6 +201,7 @@
 
     function renderRegisteredCourses(data) {
       const body = document.getElementById("registeredCoursesBody");
+      registeredCourseIds = new Set((data.courses_registered || []).map((course) => course.course_code));
       body.innerHTML = data.courses_registered
         .map(
           (course) => `
@@ -194,10 +213,38 @@
             <td>${course.relation}</td>
             <td>${course.status}</td>
             <td>${course.section}</td>
+            <td>
+              <button class="btn-drop" data-course-id="${course.course_code}">Drop</button>
+            </td>
           </tr>
         `
         )
         .join("");
+
+      body.querySelectorAll(".btn-drop").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const courseId = button.dataset.courseId;
+          const ok = window.confirm(`Drop ${courseId}?`);
+          if (!ok) {
+            return;
+          }
+          try {
+            const response = await fetch(`${API_BASE}/drop`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ student_id: studentId, course_id: courseId }),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.error || "Drop failed.");
+            }
+            window.alert("Course dropped successfully.");
+            await fetchRegistrationData();
+          } catch (error) {
+            window.alert(error.message);
+          }
+        });
+      });
     }
 
     async function fetchRegistrationData() {
@@ -209,8 +256,52 @@
         throw new Error(data.error || "Failed to load registration data.");
       }
       renderStudentInfo(data.student_info);
-      renderAvailableCourses(data);
       renderRegisteredCourses(data);
+      renderAvailableCourses(data);
+    }
+
+    async function loadDepartmentFilter() {
+      try {
+        const response = await fetch(`${API_BASE}/departments`);
+        const data = await response.json();
+        if (!response.ok) {
+          return;
+        }
+        const filter = document.getElementById("deptFilter");
+        filter.innerHTML =
+          `<option value="">All Departments</option>` +
+          (data.departments || [])
+            .map((dept) => `<option value="${dept.dept_id}">${dept.dept_name}</option>`)
+            .join("");
+
+        filter.addEventListener("change", async () => {
+          const deptId = filter.value;
+          if (!deptId) {
+            await fetchRegistrationData();
+            return;
+          }
+          const coursesResponse = await fetch(`${API_BASE}/courses?dept_id=${encodeURIComponent(deptId)}`);
+          const coursesData = await coursesResponse.json();
+          if (!coursesResponse.ok) {
+            return;
+          }
+          const synthetic = {
+            courses_available: (coursesData.courses || []).map((course, idx) => ({
+              sr: idx + 1,
+              course_id: course.course_id,
+              course_name: course.course_name,
+              cr_hrs: course.credit_hours,
+              relation: "Core",
+              status: "Not Registered",
+              sections: ["RCS-6A", "RCS-6B", "RCS-6C"],
+            })),
+            improvement_courses: [],
+          };
+          renderAvailableCourses(synthetic);
+        });
+      } catch (error) {
+        // Keep existing functionality even if departments endpoint fails.
+      }
     }
 
     const registerButton = document.getElementById("registerButton");
@@ -256,7 +347,7 @@
       }
     });
 
-    fetchRegistrationData().catch((error) => {
+    Promise.all([fetchRegistrationData(), loadDepartmentFilter()]).catch((error) => {
       document.getElementById("studentInfo").innerHTML =
         `<p class="status-text">${error.message}</p>`;
     });

@@ -13,7 +13,9 @@
       <nav class="sidebar-nav">
         <a class="sidebar-link active" href="./home.html">Home</a>
         <a class="sidebar-link" href="./course-registration.html">Course Registration</a>
+        <a class="sidebar-link" href="./analytics.html">Server Analytics</a>
       </nav>
+      <button id="logoutBtn" class="sidebar-logout">Logout</button>
     </aside>
 
     <main class="content">
@@ -103,6 +105,11 @@
           `<p class="status-text">${error.message}</p>`;
       }
     }
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("student_id");
+      window.location.href = "./index.html";
+    });
 
     loadHome();
   </script>
