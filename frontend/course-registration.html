@@ -34,12 +34,15 @@
 
         <div class="tab-panel" id="courses-available">
           <div class="table-top-actions">
+            <button id="checkSelectedButton" class="btn-check">Check Selected</button>
             <button id="registerButton" class="btn-register">Register</button>
           </div>
+          <p id="selectionSummary" class="selection-summary">No course selected.</p>
           <div class="table-wrap">
             <table class="portal-table">
               <thead>
                 <tr>
+                  <th>Check</th>
                   <th>Sr.#</th>
                   <th>Course Name</th>
                   <th>Cr.Hrs</th>
@@ -50,7 +53,7 @@
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="6">Loading...</td>
+                  <td colspan="7">Loading...</td>
                 </tr>
               </tbody>
             </table>
@@ -84,7 +87,7 @@
     const tabButtons = document.querySelectorAll(".tab-btn");
     const tabPanels = document.querySelectorAll(".tab-panel");
     const studentId = localStorage.getItem("student_id") || "DEMO-STUDENT";
-    let selectedCourseId = null;
+    let selectedCourseIds = [];
 
     tabButtons.forEach((button) => {
       button.addEventListener("click", () => {
@@ -127,6 +130,9 @@
 
       return `
         <tr class="row-available">
+          <td>
+            <input type="checkbox" class="course-check" data-course-id="${course.course_id}" />
+          </td>
           <td>${course.sr}</td>
           <td>${course.course_name}</td>
           <td>${course.cr_hrs}</td>
@@ -146,21 +152,33 @@
       const offeredRows = data.courses_available.map(makeAvailableRow).join("");
       const improvementRows = data.improvement_courses.map(makeAvailableRow).join("");
       const improvementBlock = data.improvement_courses.length
-        ? `<tr class="improvement-row"><td colspan="6">Improvement Courses</td></tr>${improvementRows}`
+        ? `<tr class="improvement-row"><td colspan="7">Improvement Courses</td></tr>${improvementRows}`
         : "";
 
       tableBody.innerHTML = offeredRows + improvementBlock;
 
-      const firstSelect = tableBody.querySelector(".section-select");
-      selectedCourseId = firstSelect ? firstSelect.dataset.courseId : null;
-      tableBody.querySelectorAll(".section-select").forEach((select) => {
-        select.addEventListener("change", () => {
-          selectedCourseId = select.dataset.courseId;
-        });
-        select.addEventListener("click", () => {
-          selectedCourseId = select.dataset.courseId;
+      selectedCourseIds = [];
+      renderSelectionSummary();
+      tableBody.querySelectorAll(".course-check").forEach((checkbox) => {
+        checkbox.addEventListener("change", () => {
+          const courseId = checkbox.dataset.courseId;
+          if (checkbox.checked) {
+            if (!selectedCourseIds.includes(courseId)) {
+              selectedCourseIds.push(courseId);
+            }
+          } else {
+            selectedCourseIds = selectedCourseIds.filter((id) => id !== courseId);
+          }
+          renderSelectionSummary();
         });
       });
+    }
+
+    function renderSelectionSummary() {
+      const summary = document.getElementById("selectionSummary");
+      summary.textContent = selectedCourseIds.length
+        ? `${selectedCourseIds.length} course(s) checked for registration.`
+        : "No course selected.";
     }
 
     function renderRegisteredCourses(data) {
@@ -196,9 +214,21 @@
     }
 
     const registerButton = document.getElementById("registerButton");
+    const checkButton = document.getElementById("checkSelectedButton");
+
+    checkButton.addEventListener("click", () => {
+      if (!selectedCourseIds.length) {
+        window.alert("Please check at least one course.");
+        return;
+      }
+      window.alert(
+        `Checked courses: ${selectedCourseIds.join(", ")}`
+      );
+    });
+
     registerButton.addEventListener("click", async () => {
-      if (!selectedCourseId) {
-        window.alert("Please select a course row first.");
+      if (!selectedCourseIds.length) {
+        window.alert("Please check at least one course.");
         return;
       }
 
@@ -208,17 +238,19 @@
       }
 
       try {
-        const response = await fetch(`${API_BASE}/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ student_id: studentId, course_id: selectedCourseId }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Registration failed.");
+        for (const courseId of selectedCourseIds) {
+          const response = await fetch(`${API_BASE}/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ student_id: studentId, course_id: courseId }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || `Registration failed for ${courseId}.`);
+          }
         }
-        window.alert("Registration request submitted.");
-        setTimeout(fetchRegistrationData, 350);
+        window.alert("Registration request submitted for checked courses.");
+        setTimeout(fetchRegistrationData, 500);
       } catch (error) {
         window.alert(error.message);
       }

@@ -3,11 +3,27 @@ from __future__ import annotations
 import os
 
 from flask import Flask, jsonify
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from flasgger import Swagger
 
 from .config import config as config_map
 from .extensions import cors, db, migrate, socketio
+
+
+def _resolve_database_uri(configured_uri: str | None) -> str:
+    """Return a working DB URI, falling back to local SQLite when needed."""
+    default_sqlite_uri = "sqlite:///smartbalance.db"
+    if not configured_uri:
+        return default_sqlite_uri
+
+    try:
+        engine = create_engine(configured_uri)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        engine.dispose()
+        return configured_uri
+    except Exception:
+        return default_sqlite_uri
 
 
 def _ensure_db_ready(app: Flask) -> None:
@@ -17,22 +33,7 @@ def _ensure_db_ready(app: Flask) -> None:
     - If the configured DB is unreachable (e.g. Postgres not running),
       automatically falls back to local SQLite.
     """
-    uri = app.config.get("SQLALCHEMY_DATABASE_URI")
-    if not uri:
-        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///smartbalance.db"
-        uri = app.config["SQLALCHEMY_DATABASE_URI"]
-
-    try:
-        # Smoke-check connectivity before touching models.
-        with db.engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except Exception:
-        # Fallback to SQLite so the app still runs.
-        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///smartbalance.db"
-        db.engine.dispose()
-
-    with app.app_context():
-        db.create_all()
+    db.create_all()
 
 
 def _seed_data() -> None:
@@ -51,23 +52,32 @@ def _seed_data() -> None:
         ]
         db.session.add_all(departments)
 
-    if not Course.query.first():
-        courses = [
-            Course(course_id="CS3012", course_name="Technical and Business Writing", dept_id="CS", credit_hours=3, semester=6,
-                   seats_total=40, instructor="Dr. A. Khan", schedule="Mon/Wed 10:00-11:30", room="C-101"),
-            Course(course_id="CS3044", course_name="Applied Human Computer Interaction", dept_id="CS", credit_hours=3, semester=6,
-                   seats_total=35, instructor="Dr. S. Ali", schedule="Tue/Thu 09:00-10:30", room="C-202"),
-            Course(course_id="AI2002", course_name="Artificial Intelligence", dept_id="CS", credit_hours=3, semester=6,
-                   seats_total=30, instructor="Dr. M. Noor", schedule="Mon/Wed 12:00-13:30", room="S-110"),
-            Course(course_id="CS4045", course_name="Deep Learning for Perception", dept_id="CS", credit_hours=3, semester=6,
-                   seats_total=45, instructor="Dr. R. Ahmed", schedule="Tue/Thu 11:00-12:30", room="E-105"),
-            Course(course_id="NS1001", course_name="Applied Physics", dept_id="EE", credit_hours=3, semester=4,
-                   seats_total=45, instructor="Dr. N. Saeed", schedule="Mon 14:00-16:00", room="E-205"),
-            Course(course_id="SS1014", course_name="Expository Writing", dept_id="SE", credit_hours=3, semester=4,
-                   seats_total=45, instructor="Dr. H. Asif", schedule="Fri 09:00-11:00", room="S-207"),
-        ]
-        db.session.add_all(courses)
-        db.session.flush()
+    seed_courses = [
+        Course(course_id="CS3012", course_name="Technical and Business Writing", dept_id="CS", credit_hours=3, semester=6,
+               seats_total=40, instructor="Dr. A. Khan", schedule="Mon/Wed 10:00-11:30", room="C-101"),
+        Course(course_id="CS3044", course_name="Applied Human Computer Interaction", dept_id="CS", credit_hours=3, semester=6,
+               seats_total=35, instructor="Dr. S. Ali", schedule="Tue/Thu 09:00-10:30", room="C-202"),
+        Course(course_id="AI2002", course_name="Artificial Intelligence", dept_id="CS", credit_hours=3, semester=6,
+               seats_total=30, instructor="Dr. M. Noor", schedule="Mon/Wed 12:00-13:30", room="S-110"),
+        Course(course_id="CS4045", course_name="Deep Learning for Perception", dept_id="CS", credit_hours=3, semester=6,
+               seats_total=45, instructor="Dr. R. Ahmed", schedule="Tue/Thu 11:00-12:30", room="E-105"),
+        Course(course_id="CS4051", course_name="Information Retrieval", dept_id="CS", credit_hours=3, semester=6,
+               seats_total=40, instructor="Dr. H. Javed", schedule="Mon/Wed 13:00-14:30", room="C-303"),
+        Course(course_id="CS4048", course_name="Data Science", dept_id="CS", credit_hours=3, semester=6,
+               seats_total=40, instructor="Dr. M. Raza", schedule="Tue/Thu 13:00-14:30", room="C-305"),
+        Course(course_id="CS4068", course_name="Network Protocols and Standards", dept_id="CS", credit_hours=3, semester=6,
+               seats_total=35, instructor="Dr. F. Waqar", schedule="Fri 11:00-13:00", room="C-210"),
+        Course(course_id="CS4032", course_name="Web Programming", dept_id="CS", credit_hours=3, semester=6,
+               seats_total=45, instructor="Dr. U. Rehman", schedule="Mon 09:00-12:00", room="C-115"),
+        Course(course_id="NS1001", course_name="Applied Physics", dept_id="EE", credit_hours=3, semester=4,
+               seats_total=45, instructor="Dr. N. Saeed", schedule="Mon 14:00-16:00", room="E-205"),
+        Course(course_id="SS1014", course_name="Expository Writing", dept_id="SE", credit_hours=3, semester=4,
+               seats_total=45, instructor="Dr. H. Asif", schedule="Fri 09:00-11:00", room="S-207"),
+    ]
+    for course in seed_courses:
+        if not Course.query.get(course.course_id):
+            db.session.add(course)
+    db.session.flush()
 
     if not AcademicCalendar.query.first():
         db.session.add(
@@ -139,6 +149,9 @@ def create_app(env: str | None = None) -> Flask:
 
     app = Flask(__name__)
     app.config.from_object(config_map.get(env, config_map["default"]))
+    app.config["SQLALCHEMY_DATABASE_URI"] = _resolve_database_uri(
+        app.config.get("SQLALCHEMY_DATABASE_URI")
+    )
 
     Swagger(
         app,
