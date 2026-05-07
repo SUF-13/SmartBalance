@@ -39,39 +39,42 @@ class RegistrationService:
 
         # Process in background thread to not block the response
         def process():
-            result = server.handle_request({
-                "student_id": student_id,
-                "course_id":  course_id
-            })
-
-            predictor.record(server.active_connections)
-
             with app.app_context():
-                with db.engine.connect() as conn:
-                    from sqlalchemy.orm import Session
-                    with Session(db.engine) as session:
-                        log = RequestLog(
-                            student_id=student_id,
-                            course_id=course_id,
-                            server_id=server.server_id,
-                            algorithm_used=algorithm,
-                            response_time=result.get("response_time", 0),
-                            status="success" if result["success"] else "failed"
-                        )
-                        session.add(log)
+                try:
+                    result = server.handle_request({
+                        "student_id": student_id,
+                        "course_id":  course_id
+                    })
+
+                    predictor.record(server.active_connections)
+
+                    log = RequestLog(
+                        student_id=student_id,
+                        course_id=course_id,
+                        server_id=server.server_id,
+                        algorithm_used=algorithm,
+                        response_time=result.get("response_time", 0),
+                        status="success" if result["success"] else "failed",
+                    )
+                    db.session.add(log)
 
                     if result["success"]:
                         reg = Registration(
                             student_id=student_id,
                             course_id=course_id,
-                            status="enrolled"
+                            status="enrolled",
                         )
-                        session.add(reg)
-                        # Update seat count
-                        c = session.get(Course, course_id)
-                        if c:
+                        db.session.add(reg)
+
+                        c = Course.query.get(course_id)
+                        if c and c.seats_filled < c.seats_total:
                             c.seats_filled += 1
-                    session.commit()
+
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    socketio.emit("request_processed", {"error": str(e)})
+                    return
 
             # Broadcast real-time update to dashboard
             from ..virtual_servers import server_pool

@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from ..services.auth_service import AuthService
 from ..models.student import Student
 
@@ -46,9 +47,11 @@ def register():
     if err:
         return jsonify({"error": err}), 409
 
+    token = create_access_token(identity=student.student_id)
     return jsonify({
         "message": "Registration successful",
         "student": student.to_dict(),
+        "token": token,
     }), 201
 
 
@@ -90,13 +93,16 @@ def login():
     if err:
         return jsonify({"error": err}), 401
 
+    token = create_access_token(identity=student.student_id)
     return jsonify({
         "message": "Login successful",
         "student": student.to_dict(),
+        "token": token,
     })
 
 
 @auth_bp.route("/me", methods=["GET"])
+@jwt_required()
 def me():
     """
     Get a student profile (no auth).
@@ -116,8 +122,20 @@ def me():
       404:
         description: Student not found
     """
-    # No auth: allow explicit student_id, otherwise return a demo user if present.
-    student_id = request.args.get("student_id") or "DEMO-STUDENT"
+    """
+    Get current logged-in student profile.
+    ---
+    tags:
+      - Auth
+    security:
+      - bearerAuth: []
+    responses:
+      200:
+        description: OK
+      401:
+        description: Missing/invalid token
+    """
+    student_id = get_jwt_identity()
     student = Student.query.get(student_id)
     if not student:
         return jsonify({"error": "Student not found"}), 404

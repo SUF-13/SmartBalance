@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import jwt_required, get_jwt_identity
 import time, random, threading
 
 from ..extensions import db, socketio
@@ -86,6 +87,7 @@ def get_departments():
 # ─── My Courses (registered by this student) ──────────────────────────────────
 
 @lb_bp.route("/my-courses", methods=["GET"])
+@jwt_required()
 def my_courses():
     """
     List courses registered by a student.
@@ -103,8 +105,7 @@ def my_courses():
       200:
         description: OK
     """
-    # No auth: allow passing student_id, otherwise use demo account
-    student_id = request.args.get("student_id") or "DEMO-STUDENT"
+    student_id = get_jwt_identity()
     return jsonify({"courses": CourseService.get_student_courses(student_id)})
 
 
@@ -256,6 +257,7 @@ def student_registration_data():
 # ─── Registration ─────────────────────────────────────────────────────────────
 
 @lb_bp.route("/register", methods=["POST"])
+@jwt_required()
 def register_course():
     """
     Register a student to a course (routed through load balancer).
@@ -285,8 +287,8 @@ def register_course():
     from ..routes import balancer_manager
     from ..ai import predictor
 
-    data = request.get_json()
-    student_id = data.get("student_id") or "DEMO-STUDENT"
+    student_id = get_jwt_identity()
+    data = request.get_json() or {}
     course_id = data.get("course_id")
 
     if not course_id:
@@ -312,6 +314,7 @@ def register_course():
 
 
 @lb_bp.route("/drop", methods=["POST"])
+@jwt_required()
 def drop_course():
     """
     Drop a registered course.
@@ -336,8 +339,8 @@ def drop_course():
       400:
         description: Not found / invalid
     """
-    data = request.get_json()
-    student_id = data.get("student_id") or "DEMO-STUDENT"
+    student_id = get_jwt_identity()
+    data = request.get_json() or {}
     course_id = data.get("course_id")
     if not course_id:
         return jsonify({"error": "course_id required"}), 400
@@ -350,6 +353,7 @@ def drop_course():
 # ─── Load Balancer Control ─────────────────────────────────────────────────────
 
 @lb_bp.route("/balancer/algorithm", methods=["GET"])
+@jwt_required()
 def get_algorithm():
     """
     Get current load balancing algorithm.
@@ -368,6 +372,7 @@ def get_algorithm():
 
 
 @lb_bp.route("/balancer/algorithm", methods=["POST"])
+@jwt_required()
 def set_algorithm():
     """
     Set load balancing algorithm.
@@ -403,6 +408,7 @@ def set_algorithm():
 
 
 @lb_bp.route("/balancer/servers", methods=["GET"])
+@jwt_required()
 def get_servers():
     """
     List virtual server statuses (simulated).
@@ -419,6 +425,7 @@ def get_servers():
 
 
 @lb_bp.route("/balancer/servers/<server_id>/toggle", methods=["POST"])
+@jwt_required()
 def toggle_server(server_id):
     """
     Toggle a virtual server alive/dead.
@@ -445,6 +452,7 @@ def toggle_server(server_id):
 
 
 @lb_bp.route("/balancer/servers", methods=["POST"])
+@jwt_required()
 def add_server():
     """
     Add a new virtual server to the pool.
@@ -484,6 +492,7 @@ def add_server():
 # ─── Analytics & AI ────────────────────────────────────────────────────────────
 
 @lb_bp.route("/analytics/summary", methods=["GET"])
+@jwt_required()
 def analytics_summary():
     """
     Basic system summary.
@@ -498,6 +507,7 @@ def analytics_summary():
 
 
 @lb_bp.route("/analytics/comparison", methods=["GET"])
+@jwt_required()
 def analytics_comparison():
     """
     Compare algorithms (avg response time, totals).
@@ -512,6 +522,7 @@ def analytics_comparison():
 
 
 @lb_bp.route("/analytics/logs", methods=["GET"])
+@jwt_required()
 def analytics_logs():
     """
     Get recent request logs.
@@ -533,6 +544,7 @@ def analytics_logs():
 
 
 @lb_bp.route("/analytics/prediction", methods=["GET"])
+@jwt_required()
 def prediction():
     """
     Get current AI traffic prediction snapshot.
@@ -550,6 +562,7 @@ def prediction():
 # ─── Simulate Load (for demo/testing) ─────────────────────────────────────────
 
 @lb_bp.route("/simulate", methods=["POST"])
+@jwt_required()
 def simulate_load():
     """
     Sends N fake requests through the load balancer for demonstration purposes.
@@ -597,14 +610,13 @@ def simulate_load():
             if not server:
                 continue
 
-            result = server.handle_request({"simulated": True})
-            predictor.record(server.active_connections)
-
             with app.app_context():
-                with db.engine.connect() as conn:
-                    from sqlalchemy.orm import Session
-                    with Session(db.engine) as session:
-                        log = RequestLog(
+                try:
+                    result = server.handle_request({"simulated": True})
+                    predictor.record(server.active_connections)
+
+                    db.session.add(
+                        RequestLog(
                             student_id=None,
                             course_id=None,
                             server_id=server.server_id,
@@ -612,8 +624,11 @@ def simulate_load():
                             response_time=result.get("response_time", 0),
                             status="success" if result["success"] else "failed",
                         )
-                        session.add(log)
-                        session.commit()
+                    )
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    continue
 
             socketio.emit("request_processed", {
                 "result": result,

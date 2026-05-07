@@ -36,6 +36,7 @@ class Student(db.Model):
     credit_hours_completed = db.Column(db.Integer, default=0)
     enrolled_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False)
 
     registrations = db.relationship('Registration', backref='student', lazy=True)
     request_logs = db.relationship('RequestLog', backref='student', lazy=True)
@@ -74,7 +75,8 @@ class Student(db.Model):
             'cgpa': float(self.cgpa) if self.cgpa is not None else None,
             'credit_hours_completed': self.credit_hours_completed,
             'enrolled_at': self.enrolled_at.isoformat(),
-            'is_active': self.is_active
+            'is_active': self.is_active,
+            'is_admin': self.is_admin,
         }
 
 

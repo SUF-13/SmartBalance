@@ -2,8 +2,10 @@ flask
 flask-cors
 flask-socketio
 flask-sqlalchemy
-flask-migrate
 flasgger
+flask-jwt-extended
+flask-migrate
+flask-limiter
 psycopg2-binary
 numpy
 pandas

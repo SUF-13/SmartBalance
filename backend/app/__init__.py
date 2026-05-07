@@ -3,11 +3,11 @@ from __future__ import annotations
 import os
 
 from flask import Flask, jsonify
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, inspect
 from flasgger import Swagger
 
 from .config import config as config_map
-from .extensions import cors, db, migrate, socketio
+from .extensions import cors, db, jwt, limiter, migrate, socketio
 
 
 def _resolve_database_uri(configured_uri: str | None) -> str:
@@ -20,6 +20,21 @@ def _resolve_database_uri(configured_uri: str | None) -> str:
         engine = create_engine(configured_uri)
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
+
+        # If the DB is reachable but schema doesn't match our models, prefer SQLite
+        # so the project runs without requiring migrations.
+        try:
+            insp = inspect(engine)
+            if "students" in insp.get_table_names():
+                cols = {c["name"] for c in insp.get_columns("students")}
+                required = {"student_id", "email", "password_hash", "degree"}
+                if not required.issubset(cols):
+                    engine.dispose()
+                    return default_sqlite_uri
+        except Exception:
+            engine.dispose()
+            return default_sqlite_uri
+
         engine.dispose()
         return configured_uri
     except Exception:
@@ -34,6 +49,23 @@ def _ensure_db_ready(app: Flask) -> None:
       automatically falls back to local SQLite.
     """
     db.create_all()
+
+    # Lightweight "auto-migration" for local SQLite so schema changes
+    # (like adding a new column) don't break app startup.
+    try:
+        engine = db.engine
+        if engine.dialect.name == "sqlite":
+            insp = inspect(engine)
+            if "students" in insp.get_table_names():
+                cols = {c["name"] for c in insp.get_columns("students")}
+                if "is_admin" not in cols:
+                    with engine.begin() as conn:
+                        conn.execute(
+                            text("ALTER TABLE students ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0")
+                        )
+    except Exception:
+        # If this fails, we'll still surface the underlying error later.
+        pass
 
 
 def _seed_data() -> None:
@@ -120,6 +152,7 @@ def _seed_data() -> None:
             credits_attempted=102,
             cgpa=3.17,
             credit_hours_completed=83,
+            is_admin=True,
         )
         demo_student.set_password("pass123")
         db.session.add(demo_student)
@@ -159,8 +192,16 @@ def create_app(env: str | None = None) -> Flask:
             "swagger": "2.0",
             "info": {
                 "title": "SmartBalance API",
-                "description": "Student portal + load balancing simulation APIs (no auth).",
+                "description": "Student portal + load balancing simulation APIs.",
                 "version": "1.0.0",
+            },
+            "securityDefinitions": {
+                "bearerAuth": {
+                    "type": "apiKey",
+                    "name": "Authorization",
+                    "in": "header",
+                    "description": "JWT Bearer token. Example: 'Bearer <token>'",
+                }
             },
             "basePath": "/",
             "schemes": ["http", "https"],
@@ -185,6 +226,8 @@ def create_app(env: str | None = None) -> Flask:
     cors.init_app(app, resources={r"/api/*": {"origins": "*"}})
     db.init_app(app)
     migrate.init_app(app, db)
+    jwt.init_app(app)
+    limiter.init_app(app)
     socketio.init_app(app, cors_allowed_origins="*")
 
     # Global singletons used by routes
@@ -193,16 +236,21 @@ def create_app(env: str | None = None) -> Flask:
     from .routes import balancer_manager  # noqa: F401
 
     # Blueprints
-    from .middleware import auth_bp
+    from .middleware import admin_bp, auth_bp
     from .load_balancer import lb_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(lb_bp)
 
     # Health
     @app.get("/api/health")
     def health():
         return jsonify({"ok": True, "env": env})
+
+    @app.errorhandler(429)
+    def ratelimited(_e):
+        return jsonify({"error": "Rate limit exceeded"}), 429
 
     with app.app_context():
         _ensure_db_ready(app)
